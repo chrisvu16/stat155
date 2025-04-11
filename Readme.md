@@ -7,19 +7,3 @@ The goal of this study is to examine how different variables such as job title, 
 
 ## Dataset
 The dataset I will be exploring contains salary information from professionals in the tech industry, collected through the website aijobs.net. This site allows individuals to submit their job and salary information in a survey-style format, and the dataset is continuously updated. The dataset includes over 100,000 entries and 11 features. Each entry represents a single worker’s information for a given year and includes variables such as job title, experience level, salary, etc. 
-
-- **Observations:** 104,104
-- **Features:** 11
-
-### Data Summary
-- **work_year:** The year the salary was paid.
-- **experience_level:** The experience level in the job during the year:<br>EN – Entry-level / Junior<br>MI – Mid-level / Intermediate<br>SE – Senior-level / Expert<br>EX – Executive-level / Director 
-- **employment_type:** The type of employment:<br>PT – Part-time<br>FT – Full-time<br>CT – Contract<br>FL – Freelance
-- **job_title:** The role worked during the year.
-- **salary:** The total gross salary amount paid.
-- **salary_currency:** The currency of the salary paid.
-- **salary_in_usd:** The salary in USD (FX rate divided by avg. USD rate of the respective year).
-- **employee_residence:** Employee's primary country of residence in during the work year.
-- **remote_ratio:** The overall amount of work done remotely, possible values are as follows:<br>0 – No remote work (less than 20%) <br>50 – Partially remote/hybrid<br>100 – Fully remote (more than 80%)
-- **company_location:** The country of the employer's main office or contracting branch.
-- **company_size:** The average number of people that worked for the company during the year: <br>S – Small (< 50 employees)<br>M – Medium (50–250)<br>L – Large (> 250)
