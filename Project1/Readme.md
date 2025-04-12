@@ -1,6 +1,3 @@
-# Readme
-Christopher Vu
-
 # Salary Prediction in the Technology Sector
 
 ## Research Question
