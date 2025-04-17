@@ -28,8 +28,7 @@ The dataset I will be exploring contains salary information from
 professionals in the tech industry, collected through the website
 aijobs.net. This site allows individuals to submit their job and salary
 information in a survey-style format, and the dataset is continuously
-updated. The dataset includes over 100,000 entries and 11 features. Each
-entry represents a single worker’s information for a given year and
+updated. The data is already in a csv file, so I just downloaded the raw csv file. The dataset includes over 100,000 entries and 11 features. The dataset consists of over 100,000 entries and 11 features. Each entry represents a single worker’s information for a given year and
 includes variables such as job title, experience level, salary, etc.
 
 -   **Observations:** 104,104
