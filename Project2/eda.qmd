@@ -36,7 +36,7 @@ The objective of this analysis is to explore global salary trends for jobs in th
 ```{r}
 library(tidyverse)
 
-salaries = read.csv("Project1/data/salaries.csv")
+salaries = read.csv("../Project1/data/salaries.csv")
 
 set.seed(1)
 
