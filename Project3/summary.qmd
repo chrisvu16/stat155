@@ -1,0 +1,261 @@
+---
+title: "Project 3"
+format: md
+editor: visual
+---
+
+## 1. Introduction and data
+
+The goal of this project is to explore patterns in tech salaries based on job titles, experience level, and company characteristics. The data was collected from aijobs.net, where individuals voluntarily submit their salary and job information. The dataset is public, downloadable as a clean CSV file, and includes fields such as job title, experience level, employment type, company size, location, and salary figures. This analysis focuses on identifying correlations between salaries and job-related factors, with the aim to potentially build a model that can predict salary ranges based on observable characteristics. The main variables of interest are listed below.
+
+-   **experience_level**: The experience level in the job during the year.
+    -   EN - Entry level
+    -   MI – Mid-level
+    -   SE – Senior-level
+    -   EX – Executive-level
+-   **employment_type**: The type of employment:
+    -   PT – Part-time
+    -   FT – Full-time
+    -   CT – Contract
+    -   FL – Freelance
+-   **job_title**: The role worked during the year.
+-   **salary_in_usd**: The salary in USD.
+-   **remote_ratio**: The overall amount of work done remotely:
+    -   0 – No remote work (less than 20%)
+    -   50 – Partially remote/hybrid
+    -   100 – Fully remote (more than 80%)
+-   **company_location**: The country of the employer’s main office or contracting branch.
+-   **company_size**: The average number of people that worked for the company during the year:
+    -   S – Small (\< 50 employees)
+    -   M – Medium (50–250)
+    -   L – Large (\> 250)
+
+### Exploratory Data Analysis (EDA)
+
+#### Top 20 Most Frequent Job Titles by Experience Level
+
+The plot below shows the top 20 most common job titles in the dataset, broken down by experience level.
+
+```{r}
+#Splitting dataset
+
+library(tidyverse)
+
+salaries = read.csv("../Project1/data/salaries.csv")
+
+set.seed(1)
+
+#70% training, 15% validating and testing set
+train_split = sample(nrow(salaries), size = 0.7 * nrow(salaries))
+train_set = salaries[train_split, ]
+
+#splits rest of the 30%
+remaining = salaries[-train_split, ] 
+valid_split <- sample(nrow(remaining), size = 0.5 * nrow(remaining))
+
+valid_set = remaining[valid_split, ]
+test_set = remaining[-valid_split, ]
+
+library(ggthemes)
+
+#top 20 most frequent positions by count (list of job titles)
+top_20 = train_set %>%
+  count(job_title, sort = TRUE) %>%
+  slice_max(n, n = 20) %>%
+  pull(job_title) 
+
+#filter training data for only top 20 jobs(dataset)
+top_20_set =  train_set %>% 
+  filter(job_title %in% top_20)
+
+#horizontal barplot
+
+ggplot(top_20_set, aes(x = fct_rev(fct_infreq(job_title)), fill = experience_level)) + 
+  geom_bar() + 
+  coord_flip() + 
+  labs(
+    x = "Job Title",
+    y = "Count",
+    title = "Top 20 Most Frequent Job Titles by Experience Level",
+    fill = "Experience Level"
+  ) + 
+  theme_clean() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15)))
+```
+
+#### Highest Average Salaries Among Frequent Job Titles
+
+This chart shows the average salary for the most frequently reported job titles.
+
+```{r}
+#average salary for each of the top 20
+avg_salary_top_20 = top_20_set %>%
+  group_by(job_title) %>%
+  summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
+  arrange(desc(avg_salary)) %>%
+  slice_max(avg_salary, n = 10) #show only the top 10
+
+ggplot(avg_salary_top_20, aes(x = fct_reorder(job_title, -avg_salary), y = avg_salary, fill = job_title)) + 
+  geom_col() + 
+  labs(
+    title = "Highest Average Salaries for Frequent Job Titles",
+    x = "Job Title",
+    y = "Average Salary (USD)"
+  ) +
+  theme_clean() + theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.position = "none")
+```
+
+#### Global Distribution of Tech Salaries
+
+The map below provides a global view of salary submissions by employee residence.
+
+```{r}
+library(maps)
+library(countrycode)
+library(scales)
+#average salary by country and convert to full country name
+avg_sal_country = train_set %>%
+  group_by(company_location) %>%
+  summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
+  mutate(country_name = countrycode(company_location, "iso2c", "country.name")) %>%
+  arrange(desc(avg_salary))
+
+#fix names to match with map data
+avg_sal_country$country_name[avg_sal_country$company_location == "XK"] <- "Kosovo"
+avg_sal_country$country_name[avg_sal_country$company_location == "US"] <- "USA"
+avg_sal_country$country_name[avg_sal_country$company_location == "GB"] <- "UK"
+avg_sal_country$country_name[avg_sal_country$company_location == "CZ"] <- "Czech Republic"
+
+#world map
+world_map = map_data("world")
+
+merged = left_join(world_map,avg_sal_country, by = c('region'='country_name'))
+
+ggplot(data = merged, aes(x = long, y = lat, group = group, fill = avg_salary)) +
+  geom_polygon(color = "white") +
+  scale_fill_viridis_c(option = "C", na.value = "gray90", breaks = seq(50000, 300000, by = 50000),  # Adjust min, max, and step
+    labels = label_comma()) +
+  labs(title = "Global Distribution of Average Tech Salaries", fill = "Avg Salary (USD)") +
+  theme(axis.text = element_blank(), axis.ticks = element_blank()) + 
+  theme_map()
+
+```
+
+#### Experience Level by Company Size
+
+This heatmap visualizes the frequency of salary reports across different experience levels and company sizes.
+
+```{r}
+#creates table
+heat_data = train_set %>%
+  count(company_size, experience_level)
+
+table(train_set$company_size)
+
+ggplot(heat_data, aes(x = company_size, y = experience_level, fill = n)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = n), color = "black", size = 4) +
+  labs(title = "Experience Level by Company Size",
+       x = "Company Size",
+       y = "Experience Level") +
+  scale_fill_gradient(name='Count', low = "lightblue", high = "darkblue")+theme_pander()
+```
+
+## 2. Methodology
+
+```{r}
+#convert categorical variables as factors
+train_set$experience_level <- as.factor(train_set$experience_level)
+train_set$company_size <- as.factor(train_set$company_size)
+train_set$employment_type <- as.factor(train_set$employment_type)
+train_set$employee_residence <- as.factor(train_set$employee_residence)
+train_set$company_location <- as.factor(train_set$company_location)
+train_set$job_title <- as.factor(train_set$job_title)
+train_set$remote_ratio <- as.factor(train_set$remote_ratio)
+
+```
+
+```{r}
+library(dplyr)
+# Target Encoding function
+target_encode <- function(data, cat_col, target_col) {
+  # Calculate the mean salary for each category
+  encoded_values <- data %>%
+    group_by_at(cat_col) %>%
+    summarise(encoding = mean(!!sym(target_col), na.rm = TRUE)) %>% #for each category, calculates mean of salary
+    ungroup()                                                       #!!sym() convert column name into a variable
+  
+  # Merge encoded values back into the original dataset
+  data <- data %>%
+    left_join(encoded_values, by = setNames(cat_col, cat_col)) %>%
+    mutate(!!sym(cat_col) := encoding) %>%
+    select(-encoding) # Remove the encoding column
+  
+  return(data)
+}
+```
+
+```{r}
+# Perform target encoding on categorical variables
+train_set_encoded <- train_set %>%
+  target_encode('experience_level', 'salary_in_usd') %>%
+  target_encode('company_size', 'salary_in_usd') %>%
+  target_encode('employment_type', 'salary_in_usd') %>%
+  target_encode('employee_residence', 'salary_in_usd') %>%
+  target_encode('company_location', 'salary_in_usd') %>%
+  target_encode('job_title', 'salary_in_usd') %>%
+  target_encode('remote_ratio', 'salary_in_usd')
+
+# Set up training data for LightGBM
+train_data <- as.matrix(train_set_encoded %>% select(-salary_in_usd))
+train_label <- train_set_encoded$salary_in_usd
+
+library(lightgbm)
+# Convert to LightGBM dataset format
+dtrain <- lgb.Dataset(data = train_data, label = train_label)
+
+# parameters for LightGBM
+params <- list(
+  objective = "regression",
+  metric = "rmse",
+  num_leaves = 31, #controls complexity of trees(larger means more complex model)
+  learning_rate = 0.05, #step size at each iteration
+  feature_fraction = 0.9, #fraction of features to use during training to prevent overfitting
+  bagging_fraction = 0.8, #fraction of data to use during each training iteration (random sampling)
+  bagging_freq = 5,
+  num_iterations = 1000, #number of boosting iterations (trees)
+)
+
+# Train the LightGBM model
+model <- lgb.train(params, dtrain, 1000)
+
+# predictions
+preds <- predict(model, train_data)
+
+# Calculate R-squared
+rss <- sum((train_label - preds)^2)
+tss <- sum((train_label - mean(train_label))^2)
+r_squared <- 1 - rss / tss
+print(paste("Training R-squared: ", r_squared))
+```
+
+```{r}
+# Predicted vs Actual plot
+plot(y_train, preds, 
+     xlab = "Actual Salary (USD)", 
+     ylab = "Predicted Salary (USD)", 
+     main = "Predicted vs Actual Salary",
+     pch = 16, cex = 0.5, col = rgb(0,0,1,0.5))
+abline(0, 1, col = "red", lwd = 2)
+
+```
+
+For this analysis, I used Light Gradient Boosting Machine, a gradient boosting algorithm, to predict salaries based on categorical variables like job title, experience level, and company size. Gradient boosting models like LightGBM are effective in capturing non-linear relationships and interactions between features. LightGBM builds an ensemble of decision trees to make predictions, growing trees in a leaf-wise manner to maximize loss reduction at each step. It is designed for high efficiency and accuracy, especially with large datasets and numeric features.
+
+To preprocess the categorical variables, I applied target encoding. This technique replaces each category in a categorical feature with the mean of the target variable (salary) for that category. For example, if the "experience_level" feature has categories such as "Junior" and "Executive," target encoding would replace "Junior" with the average salary for all junior employees and "Excecutive" with the average salary for executive employees. This method is helpful because it simplifies high-cardinality categorical variables into numerical representations that can be easily used by machine learning models. The model was trained using LightGBM, which was set up with a regression objective and tuned parameters for optimal performance.
+
+## 3. Results
+
+Using the LightGBM model, I was able to predict salaries based on factors such as experience level, company size, employment type, employee residence, company location, job title, and remote ratio. The model achieved a high training R-squared score of 0.997, indicating that it explained nearly all the variance in the salary data. Additionally, the plot of predicted versus actual salaries showed a strong fit, with the points closely following the ideal diagonal line. For example, target encoding converted job titles like "Data Scientist" or "Software Engineer" into average salary values, enabling LightGBM's decision trees to use them numerically during splitting.
+
+However, there are some potential setbacks to this modeling approach. The very high R-squared score raises concerns about overfitting, meaning the model might perform well on training data but struggle with unseen data. Additionally, target encoding can introduce data leakage if not carefully applied, as it uses information from the target variable during encoding. To address these risks, my next steps would be to validate the model through cross-validation to ensure consistent performance on different subsets and confirm that the model generalizes well rather than memorizing training patterns.
