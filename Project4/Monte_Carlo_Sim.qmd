@@ -13,80 +13,91 @@ This simulation is motivated by the insight that my LightGBM model in Project II
 # 2.Data
 
 ```{r}
-set.seed(123)
+library(tidyverse)
+library(dplyr)
 
-#number of observations
-n <- 1000
+simulate_salary_data <- function(n = 500, seed = 123) {
+  set.seed(seed)
 
-#simulate categorical variables
-experience_level <- sample(c("EN", "MI", "SE", "EX"), size = n, replace = TRUE)
-experience_level <- factor(experience_level, levels = c("EN", "MI", "SE", "EX"))
+  # Simulate categorical variables
+  experience_level <- factor(
+    sample(c("EN", "MI", "SE", "EX"), size = n, replace = TRUE),
+    levels = c("EN", "MI", "SE", "EX")
+  )
 
-company_size <- sample(c("S", "M", "L"), size = n, replace = TRUE)
-company_size <- factor(company_size, levels = c("S", "M", "L"))
+  company_size <- factor(
+    sample(c("S", "M", "L"), size = n, replace = TRUE),
+    levels = c("S", "M", "L")
+  )
 
-employment_type <- sample(c("FL", "CT", "PT", "FT"), size = n, replace = TRUE)
-employment_type <- factor(employment_type, levels = c("FL", "CT", "PT", "FT"))
+  employment_type <- factor(
+    sample(c("FL", "CT", "PT", "FT"), size = n, replace = TRUE),
+    levels = c("FL", "CT", "PT", "FT")
+  )
 
-countries <- c("US", "IN", "GB", "DE", "CA", "FR", "AU", "BR", "JP", "ES", "NL", "SG", "CH", "NG", "MX")
+  countries <- c("US", "IN", "GB", "DE", "CA", "FR", "AU", "BR", "JP", "ES", "NL", "SG", "CH", "NG", "MX")
+  employee_residence <- sample(countries, size = n, replace = TRUE)
+  company_location <- sample(countries, size = n, replace = TRUE)
 
-employee_residence <- sample(countries, size = n, replace = TRUE)
+  remote_ratio <- sample(c(0, 50, 100), size = n, replace = TRUE)
 
-company_location <- sample(countries, size = n, replace = TRUE)
+  # Job title and salary bonuses
+  job_title_bonus <- c(
+    "Research Engineer" = 210600,
+    "Machine Learning Engineer" = 197709,
+    "Research Scientist" = 196069,
+    "Software Engineer" = 190772,
+    "Product Manager" = 190560,
+    "Applied Scientist" = 181093,
+    "AI Engineer" = 172847,
+    "Engineer" = 171732,
+    "Manager" = 168842,
+    "Data Architect" = 160391,
+    "Data Scientist" = 156993,
+    "Analytics Engineer" = 156634,
+    "Data Engineer" = 147826,
+    "Business Intelligence Engineer" = 132704,
+    "Associate" = 132616,
+    "Consultant" = 123738,
+    "Analyst" = 113337,
+    "Data Analyst" = 105580,
+    "Data Manager" = 102056,
+    "Data Specialist" = 81343
+  )
 
-remote_ratio <- sample(c(0, 50, 100), size = n, replace = TRUE)
+  job_titles <- names(job_title_bonus)
+  dominant_titles <- c("Data Scientist", "Data Engineer", "Software Engineer", "Data Analyst")
+  non_dominant_titles <- setdiff(job_titles, dominant_titles)
+
+  dominant_prob <- rep(0.50 / length(dominant_titles), length(dominant_titles))
+  non_dominant_prob <- rep(0.50 / length(non_dominant_titles), length(non_dominant_titles))
+
+  job_title_probs <- c(dominant_prob, non_dominant_prob)
+  names(job_title_probs) <- c(dominant_titles, non_dominant_titles)
+
+  job_title <- sample(job_titles, size = n, replace = TRUE, prob = job_title_probs)
+  job_title_effect <- job_title_bonus[job_title]
+
+  salary <- 0.7 * job_title_effect +
+            3000 * as.numeric(experience_level) +
+            1500 * as.numeric(company_size) +
+            1000 * as.numeric(employment_type) +
+            500 * (remote_ratio / 100) +
+            rnorm(n, mean = 0, sd = 10000)
+
+  data.frame(
+    experience_level,
+    company_size,
+    employment_type,
+    employee_residence,
+    company_location,
+    job_title,
+    remote_ratio,
+    salary
+  )
+}
 
 
-#top 20 job titles and their average salaries
-job_title_bonus <- c(
-  "Research Engineer" = 210600,
-  "Machine Learning Engineer" = 197709,
-  "Research Scientist" = 196069,
-  "Software Engineer" = 190772,
-  "Product Manager" = 190560,
-  "Applied Scientist" = 181093,
-  "AI Engineer" = 172847,
-  "Engineer" = 171732,
-  "Manager" = 168842,
-  "Data Architect" = 160391,
-  "Data Scientist" = 156993,
-  "Analytics Engineer" = 156634,
-  "Data Engineer" = 147826,
-  "Business Intelligence Engineer" = 132704,
-  "Associate" = 132616,
-  "Consultant" = 123738,
-  "Analyst" = 113337,
-  "Data Analyst" = 105580,
-  "Data Manager" = 102056,
-  "Data Specialist" = 81343
-)
-
-# Sample job titles from the list
-job_titles <- names(job_title_bonus)
-
-job_title <- sample(job_titles, size = n, replace = TRUE)
-
-# Apply salary effect based on job title
-job_title_effect <- job_title_bonus[job_title]
-
-#simulate target
-salary <- 0.5 * job_title_effect +  # scale the job title effect
-          2000 * as.numeric(experience_level) +
-          1500 * as.numeric(company_size) +
-          1000 * as.numeric(employment_type)  + 500 * (remote_ratio / 100) + rnorm(n, mean = 0, sd = 10000)
-
-
-# Create the simulated dataset
-sim_data <- data.frame(
-  experience_level,
-  company_size,
-  employment_type,
-  employee_residence,
-  company_location,
-  job_title,
-  remote_ratio,
-  salary
-)
 
 ```
 
@@ -110,8 +121,8 @@ $Y_i = \beta_0 + \beta_1 J_i + \beta_2 E_i + \beta_3 C_i + \beta_4 T_i + \beta_5
 Where:
 
 -   ( $\beta_0 = 0$ ): intercept.
--   ( $\beta_1 = 0.5$ ): weight for job title average salary.
--   ( $\beta_2 = 2000$ ): effect per level of experience.
+-   ( $\beta_1 = 0.7$ ): weight for job title average salary.
+-   ( $\beta_2 = 3000$ ): effect per level of experience.
 -   ( $\beta_3 = 1500$ ): effect per company size level.
 -   ( $\beta_4 = 1000$ ): effect per employment type level.
 -   ( $beta_5 = 500$ ): effect for full remote work.
@@ -185,9 +196,107 @@ To assess the performance of LightGBM models under different hyperparameter sett
 
 ## 6.Simulation Plan
 
+```{r}
+# Target Encoding function
+target_encode <- function(data, cat_col, target_col) {
+  # Calculate the mean salary for each category
+  encoded_values <- data %>%
+    group_by_at(cat_col) %>%
+    summarise(encoding = mean(!!sym(target_col), na.rm = TRUE)) %>% #for each category, calculates mean of salary
+    ungroup()                                                       #!!sym() convert column name into a variable
+  
+  # Merge encoded values back into the original dataset
+  data <- data %>%
+    left_join(encoded_values, by = setNames(cat_col, cat_col)) %>%
+    mutate(!!sym(cat_col) := encoding) %>%
+    select(-encoding) # Remove the encoding column
+  
+  return(data)
+}
+```
+
+
+```{r}
+grid <- expand.grid(
+  num_leaves = c(15, 31),
+  learning_rate = c(0.01, 0.05),
+  num_iterations = c(100, 200),
+  feature_fraction = c(0.6,0.8),
+  bagging_fraction = c(0.6,0.8),
+  bagging_freq = c(1, 5)
+)
+```
+
+
+```{r}
+library(lightgbm)
+
+simulation_results <- list()
+for (sim in 1:5) {
+  message(paste("Simulation", sim))
+  
+  #generate new dataset
+  sim_data <- simulate_salary_data()
+  
+  # Split data
+  set.seed(sim)
+  idx <- sample(1:nrow(sim_data), 0.8 * nrow(sim_data))
+  train_set <- sim_data[idx, ]
+  test_set <- sim_data[-idx, ]
+  
+  #Target encode on train, apply same to test
+  for (col in c("experience_level", "company_size", "employment_type", "employee_residence", "company_location", "job_title")) {
+    train_set <- target_encode(train_set, col, "salary")
+    test_set <- target_encode(test_set, col, "salary")
+  }
+  
+  x_train <- as.matrix(train_set %>% select(-salary))
+  y_train <- train_set$salary
+  x_test <- as.matrix(test_set %>% select(-salary))
+  y_test <- test_set$salary
+  
+  #run each parameter combination
+  for (i in 1:nrow(grid)) {
+    params <- as.list(grid[i, ])
+    params$objective <- "regression"
+    params$metric <- "rmse"
+    
+    dtrain <- lgb.Dataset(x_train, label = y_train)
+    
+    #train lgbm modek
+    model <- lgb.train(
+      params = params,
+      data = dtrain,
+      nrounds = params$num_iterations,
+      verbose = -1)
+    #use model for testing
+    preds <- predict(model, x_test)
+    #calculate rmse
+    rmse <- sqrt(mean((y_test - preds)^2))
+    
+    simulation_results[[length(simulation_results) + 1]] <- cbind(grid[i, ], simulation = sim, rmse = rmse)
+  }
+}
+
+# Combine results into a single data frame
+results_df <- bind_rows(simulation_results)
+```
+
+
+```{r}
+#summarize results for each hyperparameter combo
+summary_results <- results_df %>%
+  group_by(num_leaves, learning_rate, num_iterations,
+           feature_fraction, bagging_fraction, bagging_freq) %>%
+  summarise(mean_rmse = mean(rmse), .groups = "drop") %>%
+  arrange(mean_rmse)
+
+head(summary_results)
+```
+
 ### Number of Simulations
 
--   $100$ simulation repetitions
+-   $5$ simulation repetitions
 -   In each repetition, a synthetic dataset will be generated using the data-generating model described earlier.
 -   The data will be split into training (80%) and testing (20%) sets.
 

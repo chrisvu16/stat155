@@ -93,7 +93,7 @@ avg_salary_top_20 = top_20_set %>%
   group_by(job_title) %>%
   summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
   arrange(desc(avg_salary)) %>%
-  slice_max(avg_salary, n = 10) #show only the top 10
+  slice_max(avg_salary, n = 20) #show only the top 10
 
 ggplot(avg_salary_top_20, aes(x = fct_reorder(job_title, -avg_salary), y = avg_salary, fill = job_title)) + 
   geom_col() + 
@@ -208,6 +208,7 @@ train_set_encoded <- train_set %>%
 
 # Set up training data for LightGBM
 train_data <- as.matrix(train_set_encoded %>% select(-salary_in_usd))
+#target column
 train_label <- train_set_encoded$salary_in_usd
 
 library(lightgbm)
@@ -223,7 +224,7 @@ params <- list(
   feature_fraction = 0.9, #fraction of features to use during training to prevent overfitting
   bagging_fraction = 0.8, #fraction of data to use during each training iteration (random sampling)
   bagging_freq = 5,
-  num_iterations = 1000, #number of boosting iterations (trees)
+  num_iterations = 1000 #number of boosting iterations (trees)
 )
 
 # Train the LightGBM model
@@ -233,15 +234,18 @@ model <- lgb.train(params, dtrain, 1000)
 preds <- predict(model, train_data)
 
 # Calculate R-squared
-rss <- sum((train_label - preds)^2)
-tss <- sum((train_label - mean(train_label))^2)
-r_squared <- 1 - rss / tss
-print(paste("Training R-squared: ", r_squared))
+mse <- mean((train_label - preds)^2)
+
+rmse <- sqrt(mse)
+
+print(paste("Training MSE: ", mse))
+
+print(paste("Training RMSE: ", rmse))
 ```
 
 ```{r}
 # Predicted vs Actual plot
-plot(y_train, preds, 
+plot(train_label, preds, 
      xlab = "Actual Salary (USD)", 
      ylab = "Predicted Salary (USD)", 
      main = "Predicted vs Actual Salary",
@@ -256,6 +260,49 @@ To preprocess the categorical variables, I applied target encoding. This techniq
 
 ## 3. Results
 
-Using the LightGBM model, I was able to predict salaries based on factors such as experience level, company size, employment type, employee residence, company location, job title, and remote ratio. The model achieved a high training R-squared score of 0.997, indicating that it explained nearly all the variance in the salary data. Additionally, the plot of predicted versus actual salaries showed a strong fit, with the points closely following the ideal diagonal line. For example, target encoding converted job titles like "Data Scientist" or "Software Engineer" into average salary values, enabling LightGBM's decision trees to use them numerically during splitting.
+Using the LightGBM model, I was able to predict salaries based on factors such as experience level, company size, employment type, employee residence, company location, job title, and remote ratio. The model achieved a high training RMSE score of 3730.67. This means that the predictions produced by the model is about  $3730.67 off. Additionally, the plot of predicted versus actual salaries showed a strong fit, with the points closely following the ideal diagonal line. For example, target encoding converted job titles like "Data Scientist" or "Software Engineer" into average salary values, enabling LightGBM's decision trees to use them numerically during splitting.
 
-However, there are some potential setbacks to this modeling approach. The very high R-squared score raises concerns about overfitting, meaning the model might perform well on training data but struggle with unseen data. Additionally, target encoding can introduce data leakage if not carefully applied, as it uses information from the target variable during encoding. To address these risks, my next steps would be to validate the model through cross-validation to ensure consistent performance on different subsets and confirm that the model generalizes well rather than memorizing training patterns.
+However, there are some potential setbacks to this modeling approach. Target encoding can introduce data leakage if not carefully applied, as it uses information from the target variable during encoding. To address these risks, my next steps would be to validate the model through cross-validation to ensure consistent performance on different subsets and confirm that the model generalizes well rather than memorizing training patterns.
+
+## Validation
+
+```{r}
+#convert categorical variables as factors
+valid_set$experience_level <- as.factor(valid_set$experience_level)
+valid_set$company_size <- as.factor(valid_set$company_size)
+valid_set$employment_type <- as.factor(valid_set$employment_type)
+valid_set$employee_residence <- as.factor(valid_set$employee_residence)
+valid_set$company_location <- as.factor(valid_set$company_location)
+valid_set$job_title <- as.factor(valid_set$job_title)
+valid_set$remote_ratio <- as.factor(valid_set$remote_ratio)
+```
+
+```{r}
+valid_set_encoded <- valid_set %>%
+  target_encode('experience_level', 'salary_in_usd') %>%
+  target_encode('company_size', 'salary_in_usd') %>%
+  target_encode('employment_type', 'salary_in_usd') %>%
+  target_encode('employee_residence', 'salary_in_usd') %>%
+  target_encode('company_location', 'salary_in_usd') %>%
+  target_encode('job_title', 'salary_in_usd') %>%
+  target_encode('remote_ratio', 'salary_in_usd')
+
+#matrix for validation data
+valid_data <- as.matrix(valid_set_encoded %>% select(-salary_in_usd))
+
+valid_label <- valid_set_encoded$salary_in_usd
+
+valid_preds <- predict(model, valid_data)
+```
+
+```{r}
+# Calculate R-squared
+mse2 <- mean((valid_label - valid_preds)^2)
+
+rmse2 <- sqrt(mse2)
+
+print(paste("Validation MSE: ", mse2))
+
+print(paste("Validation RMSE: ", rmse2))
+
+```
