@@ -9,3 +9,39 @@ The goal of this study is to examine how different variables such as job title, 
 ## Dataset
 
 The dataset I will be exploring contains salary information from professionals in the tech industry, collected through the website aijobs.net. This site allows individuals to submit their job and salary information in a survey-style format, and the dataset is continuously updated. The dataset includes over 100,000 entries and 11 features. Each entry represents a single worker’s information for a given year and includes variables such as job title, experience level, salary, etc.
+
+## 📁 Project Structure
+
+This repository contains a multi-part analysis pipeline focused on salary prediction using simulated and real-world data.
+
+### 🔧 Tools Used
+
+-   **RStudio**\
+-   **R version**: 4.4.1\
+-   **Quarto**: for rendering `.qmd` files\
+-   **Packages/Libraries**:
+    -   `tidyverse`
+    -   `ggthemes`
+    -   `maps`
+    -   `countrycode`
+    -   `scales`
+    -   `dplyr`
+    -   `lightgbm`
+
+``` r
+install.packages(c("tidyverse", "ggthemes", "maps", "countrycode", "scales", "dplyr","lightgbm"))
+```
+
+### 📂 Folder Descriptions
+
+-   **Project1/**
+    -   `salaries.csv`: The raw dataset used in this analysis.\
+    -   `Readme.md`: Markdown file detailing the dataset columns and structure.
+-   **Project2/**
+    -   `eda.qmd`: Quarto file performing exploratory data analysis (EDA) on the dataset, including visualizations and summary statistics.
+-   **Project3/**
+    -   `model.qmd`: Quarto file that builds and evaluates a predictive model on the salary data using LightGBM.
+-   **Project4/**
+    -   `Monte_Carlo_Sim.qmd`: Monte Carlo simulation script that evaluates model performance across different LightGBM hyperparameter combinations.
+
+\
