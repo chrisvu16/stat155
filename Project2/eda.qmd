@@ -59,10 +59,6 @@ The horizontal bar plot lot displays the top 20 most frequent job titles in the 
 ```{r}
 library(ggthemes)
 
-#how many different job titles
-train_set %>%
-  summarise(diff_job_titles = n_distinct(job_title))
-
 #top 20 most frequent positions by count (list of job titles)
 top_20 = train_set %>%
   count(job_title, sort = TRUE) %>%
@@ -122,31 +118,43 @@ This choropleth map visualizes the average tech salary (in USD) by country, prov
 library(maps)
 library(countrycode)
 library(scales)
-#average salary by country and convert to full country name
-avg_sal_country = train_set %>%
-  group_by(company_location) %>%
-  summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
-  mutate(country_name = countrycode(company_location, "iso2c", "country.name")) %>%
-  arrange(desc(avg_salary))
+# Calculate average salary by employee residence
+avg_sal_country <- train_set %>%
+  group_by(employee_residence) %>%
+  filter(n() >= 5) %>%
+  summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE), .groups = "drop") %>%
+  mutate(country_name = countrycode(employee_residence, "iso2c", "country.name"))    %>% arrange(desc(avg_salary))
 
-#fix names to match with map data
-avg_sal_country$country_name[avg_sal_country$company_location == "XK"] <- "Kosovo"
-avg_sal_country$country_name[avg_sal_country$company_location == "US"] <- "USA"
-avg_sal_country$country_name[avg_sal_country$company_location == "GB"] <- "UK"
-avg_sal_country$country_name[avg_sal_country$company_location == "CZ"] <- "Czech Republic"
+# Fix names for countries not matched by countrycode
+avg_sal_country$country_name[avg_sal_country$employee_residence == "XK"] <- "Kosovo"
+avg_sal_country$country_name[avg_sal_country$employee_residence == "US"] <- "USA"
+avg_sal_country$country_name[avg_sal_country$employee_residence == "GB"] <- "UK"
+avg_sal_country$country_name[avg_sal_country$employee_residence == "CZ"] <- "Czech Republic"
 
-#world map
+# Load world map data
 world_map = map_data("world")
 
-merged = left_join(world_map,avg_sal_country, by = c('region'='country_name'))
+# Merge map with salary data
+merged = left_join(world_map, avg_sal_country, by = c('region' = 'country_name'))
 
+# Plot map
 ggplot(data = merged, aes(x = long, y = lat, group = group, fill = avg_salary)) +
   geom_polygon(color = "white") +
-  scale_fill_viridis_c(option = "C", na.value = "gray90", breaks = seq(50000, 300000, by = 50000),  # Adjust min, max, and step
-    labels = label_comma()) +
-  labs(title = "Global Distribution of Average Tech Salaries", fill = "Avg Salary (USD)") +
-  theme(axis.text = element_blank(), axis.ticks = element_blank()) + 
-  theme_map()
+  scale_fill_viridis_c(
+    option = "C",
+    na.value = "gray90",
+    breaks = seq(50000, 300000, by = 50000),
+    labels = label_comma()
+  ) +
+  labs(
+    title = "Global Distribution of Average Tech Salaries by Employee Residence",
+    fill = "Avg Salary (USD)"
+  ) +
+  theme_map() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
 ```
 
 ### Experience Level by Company Size
