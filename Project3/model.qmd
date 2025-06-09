@@ -110,35 +110,44 @@ ggplot(avg_salary_top_20, aes(x = fct_reorder(job_title, -avg_salary), y = avg_s
 The map below provides a global view of salary submissions by employee residence.
 
 ```{r}
-library(maps)
-library(countrycode)
-library(scales)
-#average salary by country and convert to full country name
-avg_sal_country = train_set %>%
-  group_by(company_location) %>%
-  summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
-  mutate(country_name = countrycode(company_location, "iso2c", "country.name")) %>%
-  arrange(desc(avg_salary))
+# Calculate average salary by employee residence
+# Calculate average salary by employee residence
+avg_sal_country <- train_set %>%
+  group_by(employee_residence) %>%
+  filter(n() >= 5) %>%
+  summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE), .groups = "drop") %>%
+  mutate(country_name = countrycode(employee_residence, "iso2c", "country.name"))    %>% arrange(desc(avg_salary))
 
-#fix names to match with map data
-avg_sal_country$country_name[avg_sal_country$company_location == "XK"] <- "Kosovo"
-avg_sal_country$country_name[avg_sal_country$company_location == "US"] <- "USA"
-avg_sal_country$country_name[avg_sal_country$company_location == "GB"] <- "UK"
-avg_sal_country$country_name[avg_sal_country$company_location == "CZ"] <- "Czech Republic"
+# Fix names for countries not matched by countrycode
+avg_sal_country$country_name[avg_sal_country$employee_residence == "XK"] <- "Kosovo"
+avg_sal_country$country_name[avg_sal_country$employee_residence == "US"] <- "USA"
+avg_sal_country$country_name[avg_sal_country$employee_residence == "GB"] <- "UK"
+avg_sal_country$country_name[avg_sal_country$employee_residence == "CZ"] <- "Czech Republic"
 
-#world map
+# Load world map data
 world_map = map_data("world")
 
-merged = left_join(world_map,avg_sal_country, by = c('region'='country_name'))
+# Merge map with salary data
+merged = left_join(world_map, avg_sal_country, by = c('region' = 'country_name'))
 
+# Plot map
 ggplot(data = merged, aes(x = long, y = lat, group = group, fill = avg_salary)) +
   geom_polygon(color = "white") +
-  scale_fill_viridis_c(option = "C", na.value = "gray90", breaks = seq(50000, 300000, by = 50000),  # Adjust min, max, and step
-    labels = label_comma()) +
-  labs(title = "Global Distribution of Average Tech Salaries", fill = "Avg Salary (USD)") +
-  theme(axis.text = element_blank(), axis.ticks = element_blank()) + 
-  theme_map()
-
+  scale_fill_viridis_c(
+    option = "C",
+    na.value = "gray90",
+    breaks = seq(50000, 300000, by = 50000),
+    labels = label_comma()
+  ) +
+  labs(
+    title = "Global Distribution of Average Tech Salaries by Employee Residence",
+    fill = "Avg Salary (USD)"
+  ) +
+  theme_map() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
 ```
 
 #### Experience Level by Company Size
@@ -161,7 +170,17 @@ ggplot(heat_data, aes(x = company_size, y = experience_level, fill = n)) +
   scale_fill_gradient(name='Count', low = "lightblue", high = "darkblue")+theme_pander()
 ```
 
-## 2. Methodology
+## 2. Methodology/Model
+
+## 📊 Method and Model
+
+For this analysis, I used Light Gradient Boosting Machine (LightGBM), a gradient boosting algorithm, to predict salaries based on categorical variables such as job title, experience level, and company size. Gradient boosting models like LightGBM are effective in capturing non-linear relationships and interactions between features. LightGBM builds an ensemble of decision trees to make predictions, growing trees in a leaf-wise manner to maximize loss reduction at each step. It is designed for high efficiency and accuracy, particularly with large datasets and numeric features.
+
+To preprocess the categorical variables, I applied target encoding. This technique replaces each category in a categorical feature with the mean of the target variable (salary) for that category. For example, if the `experience_level` feature includes categories like `"Junior"` and `"Executive"`, target encoding would replace `"Junior"` with the average salary of all junior-level employees, and `"Executive"` with the average salary of executives. This method is helpful because it transforms high-cardinality categorical variables into numerical representations that gradient boosting models can interpret effectively.
+
+The data was split into 70% training, 15% validation, and 15% test sets to ensure robust model evaluation. The model was trained with a regression objective and tuned using different combinations of hyperparameters to improve performance.
+
+Model performance was evaluated using Root Mean Squared Error (RMSE), which measures the average magnitude of prediction error in the same units as the target variable (USD). For instance, an RMSE of 10,000 indicates that on average, the model's salary predictions were off by approximately \$10,000.
 
 ```{r}
 #convert categorical variables as factors
@@ -194,6 +213,8 @@ target_encode <- function(data, cat_col, target_col) {
   return(data)
 }
 ```
+
+### Training
 
 ```{r}
 # Perform target encoding on categorical variables
@@ -254,17 +275,7 @@ abline(0, 1, col = "red", lwd = 2)
 
 ```
 
-For this analysis, I used Light Gradient Boosting Machine, a gradient boosting algorithm, to predict salaries based on categorical variables like job title, experience level, and company size. Gradient boosting models like LightGBM are effective in capturing non-linear relationships and interactions between features. LightGBM builds an ensemble of decision trees to make predictions, growing trees in a leaf-wise manner to maximize loss reduction at each step. It is designed for high efficiency and accuracy, especially with large datasets and numeric features.
-
-To preprocess the categorical variables, I applied target encoding. This technique replaces each category in a categorical feature with the mean of the target variable (salary) for that category. For example, if the "experience_level" feature has categories such as "Junior" and "Executive," target encoding would replace "Junior" with the average salary for all junior employees and "Excecutive" with the average salary for executive employees. This method is helpful because it simplifies high-cardinality categorical variables into numerical representations that can be easily used by machine learning models. The model was trained using LightGBM, which was set up with a regression objective and tuned parameters for optimal performance.
-
-## 3. Results
-
-Using the LightGBM model, I was able to predict salaries based on factors such as experience level, company size, employment type, employee residence, company location, job title, and remote ratio. The model achieved a high training RMSE score of 3730.67. This means that the predictions produced by the model is about  $3730.67 off. Additionally, the plot of predicted versus actual salaries showed a strong fit, with the points closely following the ideal diagonal line. For example, target encoding converted job titles like "Data Scientist" or "Software Engineer" into average salary values, enabling LightGBM's decision trees to use them numerically during splitting.
-
-However, there are some potential setbacks to this modeling approach. Target encoding can introduce data leakage if not carefully applied, as it uses information from the target variable during encoding. To address these risks, my next steps would be to validate the model through cross-validation to ensure consistent performance on different subsets and confirm that the model generalizes well rather than memorizing training patterns.
-
-## Validation
+### Validation
 
 ```{r}
 #convert categorical variables as factors
@@ -304,5 +315,55 @@ rmse2 <- sqrt(mse2)
 print(paste("Validation MSE: ", mse2))
 
 print(paste("Validation RMSE: ", rmse2))
-
 ```
+
+### Testing
+
+```{r}
+test_set_encoded <- test_set %>%
+  target_encode('experience_level', 'salary_in_usd') %>%
+  target_encode('company_size', 'salary_in_usd') %>%
+  target_encode('employment_type', 'salary_in_usd') %>%
+  target_encode('employee_residence', 'salary_in_usd') %>%
+  target_encode('company_location', 'salary_in_usd') %>%
+  target_encode('job_title', 'salary_in_usd') %>%
+  target_encode('remote_ratio', 'salary_in_usd')
+
+#matrix for validation data
+test_data <- as.matrix(test_set_encoded %>% select(-salary_in_usd))
+
+test_label <- test_set_encoded$salary_in_usd
+
+test_preds <- predict(model, test_data)
+
+mse3 <- mean((test_label - test_preds)^2)
+
+rmse3 <- sqrt(mse3)
+
+print(paste("Testing MSE: ", mse3))
+
+print(paste("Testing RMSE: ", rmse3))
+
+plot(test_label, test_preds, 
+     xlab = "Actual Salary (USD)", 
+     ylab = "Predicted Salary (USD)", 
+     main = "Predicted vs Actual Salary",
+     pch = 16, cex = 0.5, col = rgb(0,0,1,0.5))
+abline(0, 1, col = "red", lwd = 2)
+```
+
+```{r}
+lgb.importance(model, percentage = TRUE)
+```
+
+## 3. Results
+
+Using the LightGBM model, I was able to predict salaries based on factors such as experience level, company size, employment type, employee residence, company location, job title, and remote ratio. The model achieved the following performance:
+
+-   **Training RMSE**: \$3,730.67\
+-   **Validation RMSE**: \$9,246.20\
+-   **Testing RMSE**: \$8,274.13
+
+These results suggest that while the model fits the training data well, it generalizes reasonably to unseen data, with an average prediction error of around \$8,274 on the test set. The predicted vs. actual salary plot showed a strong correlation, with points closely aligned along the diagonal line. This indicates that the model was generally able to capture the salary trends accurately across different employee profiles.
+
+As expected, job title emerged as one of the most important predictors in the model. This makes sense, as roles like Research Engineer or Machine Learning Engineer often come with substantially higher average salaries. Other influential features included employee residence and experience level, reflecting the impact of geographic location and seniority on compensation. On the other hand, variables such as employment type and company size had relatively low importance in the model.
